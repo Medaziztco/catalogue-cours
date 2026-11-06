@@ -1,0 +1,5 @@
+{
+    "editor.inlineSuggest.edits.showCollapsed": true,
+    "C_Cpp.copilotHover": "enabled",
+    "github.copilot.chat.languageContext.inline.typescript.enabled": true
+}

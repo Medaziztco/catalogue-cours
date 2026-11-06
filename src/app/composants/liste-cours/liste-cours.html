@@ -16,7 +16,6 @@
     <article
       class="carte-cours"
       [class.actif]="c === coursActif"
-      (click)="selectionner(c)"
     >
       <h2>{{ c.titre }}</h2>
 
@@ -45,6 +44,7 @@
 
       <p>Durée : {{ c.duree }}</p>
       <p>Places disponibles : {{ c.places }}</p>
+      <a [routerLink]="['/cours', c.id]">Voir le détail</a>
     </article>
   } @empty {
     <p class="liste-vide">
