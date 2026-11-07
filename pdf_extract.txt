@@ -1,0 +1,272 @@
+--- PAGE 1 ---
+SEMAINE 6 · FORMATION ANGULAR 22 
+TP 6 — Services et injection de dépendances 
+Sixième atelier pratique : extraire la logique métier dans des services injectables 
+DURÉE 
+3h 
+MODE 
+Individuel 
+LIVRABLE 
+Dépôt Git 
+ 
+Contexte et objectifs 
+Au TP5, le formulaire d'inscription affiche un message de confirmation puis oublie tout : rien n'est conservé. 
+De plus, plusieurs composants lisent directement le tableau COURS. Cette séance range le code au bon 
+endroit grâce aux services et à l'injection de dépendances : les composants affichent, les services portent 
+les données et la logique. 
+À la fin du TP, l'application aura la répartition suivante : 
+ÉLÉMENT RÔLE CE QU'IL CONTIENT 
+Catalogue Service (nouveau) Fournit la liste des cours et la recherche par identifiant 
+Inscriptions Service (nouveau) Conserve les inscriptions en mémoire : ajouter, annuler, vérifier 
+Session Service (TP4) Sait qui est connecté ; recopié sans explication au TP4 
+Composants Affichage Appellent les services avec inject() et affichent le résultat 
+ 
+Vous réaliserez aussi une courte expérience pour constater qu'un service fourni à la racine est partagé par 
+toute l'application. Durée indicative : 3h. 
+Avant de commencer 
+▪ Avoir terminé le TP5 : formulaire d'inscription réactif et validé, route /cours/:id/inscription 
+▪ Avoir suivi la présentation de la séance (@Injectable, providedIn, inject(), portée des fournisseurs) 
+▪ Partir du même dépôt Git que les TP précédents 
+Convention du CLI : ng generate service services/catalogue crée catalogue.ts avec la classe Catalogue (sans suffixe 
+Service). Adaptez les imports si vos noms diffèrent. 
+Étapes pas à pas 
+ÉTAPE 1  ·  Créer le service Catalogue 
+--- PAGE 2 ---
+ng generate service services/catalogue 
+Dans catalogue.ts, centralisez l'accès aux cours : 
+import { Injectable } from '@angular/core'; 
+import { COURS, Cours } from '../donnees/cours'; 
+  
+@Injectable({ providedIn: 'root' }) 
+export class Catalogue { 
+  lister(): Cours[] { 
+    return COURS; 
+  } 
+  
+  trouver(id: number): Cours | undefined { 
+    return COURS.find(c => c.id === id); 
+  } 
+} 
+@Injectable({ providedIn: 'root' }) déclare le service auprès de l'injecteur racine : Angular en crée 
+une seule instance, créée à la première demande et partagée partout. Vous n'écrirez jamais new 
+Catalogue(). 
+Pourquoi si peu de code ? Parce qu'à la semaine 7, seul ce service changera : il ira chercher les cours sur une API au lieu 
+d'un tableau, et les composants n'auront pas à bouger. 
+ÉTAPE 2  ·  Utiliser le service dans les composants 
+Un composant demande un service avec la fonction inject(). Dans liste-cours.ts, remplacez l'import 
+de COURS : 
+import { Component, inject } from '@angular/core'; 
+import { Cours } from '../../donnees/cours'; 
+import { Catalogue } from '../../services/catalogue'; 
+  
+export class ListeCoursComponent { 
+  private catalogue = inject(Catalogue); 
+  cours: Cours[] = this.catalogue.lister(); 
+  // ... recherche, tri, etc. inchangés 
+} 
+Dans page-detail.ts et inscription.ts, remplacez la recherche dans le tableau par un appel au 
+service : 
+private catalogue = inject(Catalogue); 
+  
+get cours(): Cours | undefined { 
+  return this.catalogue.trouver(Number(this.id)); 
+} 
+Supprimez les imports de COURS devenus inutiles dans ces trois fichiers, puis ajoutez inject aux imports de 
+@angular/core (dans inscription.ts, il y est déjà). 
+--- PAGE 3 ---
+Vérification 
+Lancez ng serve : l'application doit se comporter exactement comme à la fin du TP5. Un refactoring ne 
+change rien pour l'utilisateur ; c'est ce qui permet de le vérifier. 
+ 
+ÉTAPE 3  ·  Créer le modèle et le service Inscriptions 
+Définissez d'abord la forme d'une inscription dans src/app/donnees/inscription-cours.ts : 
+export interface InscriptionCours { 
+  coursId: number; 
+  nom: string; 
+  email: string; 
+  niveau: string; 
+  date: Date; 
+} 
+Générez ensuite le service : 
+ng generate service services/inscriptions 
+Dans inscriptions.ts, conservez la liste dans un signal (le même outil que dans le service Session du TP4) 
+: 
+import { Injectable, signal } from '@angular/core'; 
+import { InscriptionCours } from '../donnees/inscription-cours'; 
+  
+@Injectable({ providedIn: 'root' }) 
+export class Inscriptions { 
+  private _liste = signal<InscriptionCours[]>([]); 
+  readonly liste = this._liste.asReadonly(); 
+  
+  ajouter(inscription: InscriptionCours) { 
+    this._liste.update(l => [...l, inscription]); 
+  } 
+  
+  annuler(coursId: number) { 
+    this._liste.update(l => l.filter(i => i.coursId !== coursId)); 
+  } 
+  
+  estInscrit(coursId: number): boolean { 
+    return this._liste().some(i => i.coursId === coursId); 
+  } 
+} 
+Deux choix de conception à retenir : la liste est privée et exposée en lecture seule (asReadonly()), si bien 
+que seul le service peut la modifier ; et on remplace le tableau par un nouveau ([...l, inscription], 
+filter) au lieu de le modifier, ce qui permet à Angular de détecter le changement. 
+--- PAGE 4 ---
+ÉTAPE 4  ·  Enregistrer l'inscription depuis le formulaire 
+Dans inscription.ts, injectez le service et remplacez le corps de envoyer() : 
+inscriptions = inject(Inscriptions); 
+  
+envoyer() { 
+  const cours = this.cours; 
+  if (this.form.invalid || !cours) { 
+    this.form.markAllAsTouched(); 
+    return; 
+  } 
+  const v = this.form.getRawValue(); 
+  this.inscriptions.ajouter({ 
+    coursId: cours.id, 
+    nom: v.nom ?? '', 
+    email: v.email ?? '', 
+    niveau: v.niveau ?? '', 
+    date: new Date(), 
+  }); 
+  this.confirmation = `Merci ${v.nom} ! Votre inscription à « ${cours.titre} » est 
+enregistrée.`; 
+  this.form.reset(); 
+} 
+Empêchez ensuite une double inscription. Dans inscription.html, le formulaire n'est affiché que si 
+l'utilisateur n'est pas déjà inscrit à ce cours : 
+@if (cours) { 
+  <h1>Inscription : {{ cours.titre }}</h1> 
+  
+  @if (confirmation) { 
+    <p class="succes">{{ confirmation }}</p> 
+    <a routerLink="/mes-inscriptions">Voir mes inscriptions</a> 
+  } @else if (inscriptions.estInscrit(cours.id)) { 
+    <p class="succes">Vous êtes déjà inscrit à ce cours.</p> 
+    <a routerLink="/mes-inscriptions">Voir mes inscriptions</a> 
+  } @else { 
+    <!-- ici : toute la balise <form> du TP5, inchangée --> 
+  } 
+} @else { 
+  <p>Ce cours n'existe pas.</p> 
+} 
+Supprimez aussi le console.log du TP5 : les données sont maintenant dans le service. 
+ÉTAPE 5  ·  Afficher et annuler les inscriptions 
+Dans mes-inscriptions.ts, injectez les trois services. Ils sont publics (sans private) car le template les 
+utilise directement : 
+--- PAGE 5 ---
+import { Component, inject } from '@angular/core'; 
+import { DatePipe } from '@angular/common'; 
+import { RouterLink } from '@angular/router'; 
+import { Session } from '../../services/session'; 
+import { Catalogue } from '../../services/catalogue'; 
+import { Inscriptions } from '../../services/inscriptions'; 
+  
+@Component({ 
+  selector: 'app-mes-inscriptions', 
+  imports: [DatePipe, RouterLink], 
+  templateUrl: './mes-inscriptions.html', 
+  styleUrl: './mes-inscriptions.css', 
+}) 
+export class MesInscriptions { 
+  session = inject(Session); 
+  catalogue = inject(Catalogue); 
+  inscriptions = inject(Inscriptions); 
+} 
+Puis dans mes-inscriptions.html : 
+<h1>Mes inscriptions</h1> 
+<p>Bonjour {{ session.nom() }}</p> 
+  
+@for (i of inscriptions.liste(); track i.coursId) { 
+  <article class="carte-inscription"> 
+    <h2>{{ catalogue.trouver(i.coursId)?.titre }}</h2> 
+    <p>Niveau : {{ i.niveau }} · Inscrit le {{ i.date | date:'dd/MM/yyyy' }}</p>  
+    <button (click)="inscriptions.annuler(i.coursId)">Annuler l'inscription</button>  
+  </article> 
+} @empty { 
+  <p>Aucune inscription pour le moment. <a routerLink="/cours">Parcourir le 
+catalogue</a></p> 
+} 
+Et un peu de style dans mes-inscriptions.css : 
+.carte-inscription { 
+  border: 1px solid #dadae3; border-left: 4px solid #dd0031; 
+  border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; max-width: 520px; 
+} 
+.carte-inscription h2 { margin: 0 0 6px; font-size: 1.1rem; color: #1b1b2f; } 
+.carte-inscription button { 
+  background: #fff; color: #c3002f; border: 1px solid #c3002f; 
+  border-radius: 6px; padding: 6px 14px; cursor: pointer; 
+} 
+Piège fréquent 
+--- PAGE 6 ---
+Sans l'import de DatePipe, le pipe date provoque l'erreur NG8004 « No pipe found with name 'date' », 
+comme uppercase au TP3. Tout pipe intégré doit être importé dans un composant standalone. 
+ 
+ÉTAPE 6  ·  Afficher un compteur dans le menu 
+Le menu appartient au composant racine, qui est un autre composant que la page d'inscription. Injectez le 
+même service dans app.ts : 
+inscriptions = inject(Inscriptions); 
+Puis, dans app.html, modifiez le lien du menu : 
+<a routerLink="/mes-inscriptions" routerLinkActive="actif"> 
+  Mes inscriptions ({{ inscriptions.liste().length }}) 
+</a> 
+Inscrivez-vous à un cours : le compteur du menu passe à 1 sans aucun code de communication entre les 
+deux composants. Annulez l'inscription : il repasse à 0. 
+ÉTAPE 7  ·  Expérience : une instance ou plusieurs ? 
+Pour constater qu'il n'existe qu'une instance, ajoutez un constructeur au service dans inscriptions.ts : 
+constructor() { 
+  console.log('Service Inscriptions créé'); 
+} 
+Rechargez la page, ouvrez la console (F12) et naviguez entre les trois écrans qui utilisent le service : le 
+message n'apparaît qu'une fois, malgré trois composants qui l'utilisent. 
+Seconde expérience : dans inscription.ts, ajoutez temporairement une ligne providers dans le 
+décorateur : 
+@Component({ 
+  selector: 'app-inscription', 
+  imports: [ReactiveFormsModule, RouterLink], 
+  providers: [Inscriptions],      // <-- ligne d'expérience 
+  templateUrl: './inscription.html', 
+  styleUrl: './inscription.css', 
+}) 
+Inscrivez-vous de nouveau : le compteur du menu ne bouge plus, et « Mes inscriptions » reste vide. En 
+déclarant le service dans providers, ce composant a créé sa propre instance, distincte de celle du reste de 
+l'application. Notez ce que vous observez, puis supprimez la ligne et retirez le console.log. 
+Règle à retenir : sauf besoin précis d'un état propre à un composant, on laisse providedIn: 'root'.  
+ÉTAPE 8  ·  Tester l'application complète 
+ng serve --open 
+--- PAGE 7 ---
+▪ Connectez-vous, ouvrez un cours, inscrivez-vous : confirmation, puis le compteur du menu passe à 1 
+▪ Retournez sur le même cours et sur /inscription : le message « déjà inscrit » remplace le formulaire 
+▪ Dans « Mes inscriptions », vérifiez le titre du cours, le niveau et la date, puis annulez l'inscription 
+▪ Après annulation, le message de liste vide s'affiche et le formulaire redevient disponible 
+Les inscriptions sont conservées en mémoire : un rechargement de la page (F5) les efface. Elles seront enregistrées sur 
+un serveur à la semaine 7. 
+ÉTAPE 9  ·  Commit 
+git add . 
+git commit -m "TP6 : services Catalogue et Inscriptions, injection de dependances"  
+git push 
+Pour aller plus loin 
+▪ Conservez les inscriptions après un rechargement : lisez localStorage dans le constructeur du service 
+et écrivez-y dans ajouter et annuler. 
+▪ Ajoutez dans Catalogue une méthode parCategorie(categorie: string) et utilisez-la pour 
+afficher le nombre de cours par catégorie sur la page d'accueil. 
+▪ Déplacez la déconnexion du composant racine dans le service Session (redirection comprise) et 
+simplifiez app.ts. 
+Livrable et critères de réussite 
+Livrable 
+Lien du dépôt Git mis à jour, avec un commit dédié au TP6, contenant une application dont la logique 
+métier est portée par des services. 
+ 
+Critères de réussite 
+☐  Le service Catalogue est déclaré avec @Injectable({ providedIn: 'root' }) et utilisé via inject() 
+☐  Plus aucun composant n'importe directement le tableau COURS 
+☐  Le service Inscriptions garde sa liste privée et la modifie sans muter le tableau d'origine 
+☐  Le formulaire du TP5 enregistre réellement l'inscription, et une double inscription est refusée 
+☐  La page Mes inscriptions liste, affiche la date avec DatePipe et permet d'annuler 
+☐  Le compteur du menu se met à jour sans communication directe entre composants 
+☐  Vous savez expliquer pourquoi la ligne providers de l'expérience cassait le compteur 
+☐  Le dépôt Git contient un commit dédié à ce TP 

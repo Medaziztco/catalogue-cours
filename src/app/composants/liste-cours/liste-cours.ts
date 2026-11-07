@@ -1,10 +1,11 @@
-import { Component,Output,EventEmitter } from '@angular/core';
+import { Component,Output,EventEmitter,inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import{FiltreCoursPipe} from '../../pipes/filtre-cours-pipe';
 import{TriCoursPipe}from'../../pipes/tri-cours-pipe';
 import { UpperCasePipe }from '@angular/common';
-import{ Cours , COURS } from '../../donnees/cours';
+import{ Cours} from '../../donnees/cours';
 import { RouterLink } from '@angular/router';
+import { Catalogue } from '../../services/catalogue';
 @Component({
   imports: [FormsModule,FiltreCoursPipe,TriCoursPipe,UpperCasePipe,RouterLink],
   selector: 'app-liste-cours',
@@ -12,7 +13,8 @@ import { RouterLink } from '@angular/router';
   templateUrl: './liste-cours.html',
 })
 export class ListeCoursComponent {
-  cours: Cours[] = COURS;
+  private catalogue = inject(Catalogue);
+cours: Cours[] = this.catalogue.lister();
   @Output() coursSelectionne=new EventEmitter<Cours>();
   coursActif:Cours | null=null;
   selectionner(c:Cours){

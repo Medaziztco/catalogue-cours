@@ -1,7 +1,8 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { COURS, Cours } from '../../donnees/cours';
+import { Cours } from '../../donnees/cours';
 import { DetailCoursComponent } from '../../composants/detail-cours/detail-cours';
+import { Catalogue } from '../../services/catalogue';
 
 @Component({
   selector: 'app-page-detail',
@@ -10,9 +11,10 @@ import { DetailCoursComponent } from '../../composants/detail-cours/detail-cours
   styleUrl: './page-detail.css'
 })
 export class PageDetail {
+  private catalogue = inject(Catalogue);
   @Input() id = '';
 
   get cours(): Cours | undefined {
-    return COURS.find(c => c.id === Number(this.id));
+    return this.catalogue.trouver(Number(this.id));
   }
 }

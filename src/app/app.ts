@@ -1,11 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { EnTete } from './composants/en-tete/en-tete';
 import { PiedPage } from './composants/pied-page/pied-page';
-import { Cours } from './donnees/cours';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
-import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Session } from './services/session';
+import { Inscriptions } from './services/inscriptions';
+
 @Component({
   selector: 'app-root',
   imports: [EnTete, PiedPage, RouterOutlet, RouterLink, RouterLinkActive],
@@ -14,10 +14,11 @@ import { Session } from './services/session';
 })
 export class App {
   session = inject(Session);
-private router = inject(Router);
+  inscriptions = inject(Inscriptions);
+  private router = inject(Router);
 
-deconnecter() {
-  this.session.deconnecter();
-  this.router.navigateByUrl('/');
-}
+  deconnecter() {
+    this.session.deconnecter();
+    this.router.navigateByUrl('/');
+  }
 }
