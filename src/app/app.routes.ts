@@ -6,8 +6,9 @@ import { Connexion } from './pages/connexion/connexion';
 import { Introuvable } from './pages/introuvable/introuvable';
 import { ListeCoursComponent } from './composants/liste-cours/liste-cours';
 import { authGuard } from './guards/auth-guard';
+import { Inscription } from './pages/inscription/inscription';
 export const routes: Routes = [
-  { path: '', component: Accueil, title: 'Accueil' },
+  { path: '' , component: Accueil, title: 'Accueil' },
   { path: 'cours', component: ListeCoursComponent, title: 'Catalogue' },
   { path: 'cours/:id', component: PageDetail, title: 'Détail du cours' },
   { path: 'connexion', component: Connexion, title: 'Connexion' },
@@ -21,6 +22,6 @@ export const routes: Routes = [
   canActivate: [authGuard],
   title: 'Mes inscriptions'
 },
-
+ {path: 'cours/:id/inscription', component: Inscription,canActivate:[authGuard], title: 'Inscription'},
   { path: '**', component: Introuvable, title: 'Page introuvable' }
 ];
